@@ -17,6 +17,40 @@ QUESTIONS = [
     dict(q=r'What is the sum of all distinct solutions of $\sin3x=\cos x$ for $0\leq x<2\pi$?',opts=[r'$5\pi$',r'$\frac{11\pi}2$',r'$6\pi$',r'$\frac{13\pi}2$'],ans=0,hints=[r'Use $\cos x=\sin(\frac\pi2-x)$ and the two cases for equal sines.',r'The solution families are $x=\frac\pi8+\frac{k\pi}2$ and $x=\frac\pi4+k\pi$. List all angles in the interval.'],solution=r'The six angles are $\frac\pi8,\frac{5\pi}8,\frac{9\pi}8,\frac{13\pi}8,\frac\pi4,\frac{5\pi}4$. Their sum is $5\pi$.'),
 ]
 
+# Targeted, pre-reviewed feedback for each possible incorrect question.
+# The final message is assembled from the exact set of incorrect answers.
+QUESTION_FEEDBACK = [
+    "Review special-angle sine and cosine values (30° and 60°). Use the unit circle or a special-angle table, then practise evaluating short expressions.",
+    "Review how many angles can have the same sine value on a full turn. Practise identifying the reference angle and checking both relevant quadrants.",
+    "Review the Pythagorean identity and the tangent ratio. Find cosine from a given sine value, choose its sign from the quadrant, then divide sine by cosine.",
+    "Review solving basic cosine equations on [0, 2π). Isolate cosine, identify its reference angle, and include every valid quadrant before listing solutions.",
+    "Review the signs of sine and cosine in each quadrant. Use sin²x + cos²x = 1 to find the magnitude, then select the correct sign in Quadrant II.",
+    "Review equations with double angles. For sin(2x) = 0, list every value of x in the specified interval before adding them; avoid missing endpoints or extra roots.",
+    "Review factoring quadratic expressions in sin(x). Solve each resulting sine equation separately and count distinct angles, including special cases such as sin(x) = 1.",
+    "Review trigonometric equations that require checking solutions. Squaring can introduce extraneous answers, so substitute each candidate back into the original equation.",
+    "Review the double-angle identity cos(2x) = 1 − 2sin²(x). Factor the resulting equation, find all distinct angles, and add them carefully.",
+    "Review equations involving different angle multiples. Convert cosine to sine, solve both sine-equation families, then list and sum every solution in [0, 2π).",
+]
+
+def feedback_for_results():
+    unanswered = [i for i in range(10) if i not in (s.submitted if s.feedback_mode == 'At the end' else s.solved)]
+    if len(unanswered) > 7:
+        return ("Start with the fundamentals", "You completed fewer than three questions. A reliable topic-by-topic assessment is not possible yet. Review the full trigonometry unit, beginning with special angles, the unit circle, trigonometric identities, and solving equations. Then retake all ten questions to identify your specific strengths and gaps.")
+    if s.feedback_mode == 'At the end':
+        wrong = [i for i in range(10) if i in s.submitted and s.selections.get(i) != QUESTIONS[i]['ans']]
+    else:
+        # In Instant mode, a wrong attempt reveals a learning gap even if the student later solves the item.
+        wrong = [i for i in range(10) if s.mistakes.get(i, 0) > 0]
+    if not wrong and not unanswered:
+        return ("Excellent work!", "You answered all ten questions correctly" + (" without incorrect attempts." if s.feedback_mode == 'Instant' else ".") + " You demonstrated a strong grasp of special angles, identities, trigonometric equations, and solution counting. For a next challenge, solve similar problems without multiple-choice options.")
+    if not wrong:
+        return ("Good progress", "You have no recorded incorrect answers. Complete the remaining questions to receive a full assessment of your trigonometry skills.")
+    intro = ("You made incorrect attempts on" if s.feedback_mode == 'Instant' else "You answered incorrectly on") + " question" + ("s" if len(wrong) != 1 else "") + " " + ", ".join(str(i+1) for i in wrong) + ". Focus on these specific areas:"
+    lines = [f"**Question {i+1}:** {QUESTION_FEEDBACK[i]}" for i in wrong]
+    if unanswered:
+        lines.append("**Unanswered:** Complete questions " + ", ".join(str(i+1) for i in unanswered) + " to get a fuller assessment.")
+    return ("Your personalised study feedback", intro + "\n\n" + "\n\n".join(lines))
+
 LEVELS = [('EASY',0,3),('MEDIUM',3,7),('HARD',7,10)]
 DEFAULTS = dict(page='home', current=0, solved=set(), mistakes={}, selections={}, hint_open=False, theme='Light', timer_minutes=15, started_at=None, expired=False, feedback_mode='Instant', submitted=set())
 for k,v in DEFAULTS.items():
@@ -75,6 +109,10 @@ h1,h2,h3,h4,p,label {{color:{FG};}}
 [data-testid="stMetric"] {{background:{CARD};border:1px solid {BORDER};border-radius:18px;padding:15px;}}
 [data-testid="stExpander"] {{background:{CARD}!important;border:1px solid {BORDER}!important;border-radius:14px!important;margin-bottom:9px;}}
 [data-testid="stAlert"] {{border-radius:13px;}}
+ [data-testid="stAlert"] {{background:#e9f7f2!important;border:1px solid #a2d8c7!important;}}
+ [data-testid="stAlert"] *,[data-testid="stAlert"] p {{color:#143f35!important;}}
+ [data-testid="stExpander"] details summary,[data-testid="stExpander"] details summary * {{color:{FG}!important;background:{CARD}!important;}}
+ [data-testid="stExpander"] details[open] summary {{border-bottom:1px solid {BORDER}!important;}}
 .quiz-tag {{display:inline-block;border:1px solid {GREEN};border-radius:30px;padding:7px 14px;color:{GREEN};font-weight:750;font-size:12px;letter-spacing:.7px;}}
 .hero-island {{text-align:center;padding:24px 8px 28px;}}
 .hero-island h1 {{color:{FG};font-size:clamp(36px,4.8vw,64px);letter-spacing:-2px;margin:18px 0;}}
@@ -294,6 +332,10 @@ elif s.page=='results':
         c1.metric('Correct',f'{correct}/10')
         c2.metric('Incorrect',sum(s.selections.get(i)!=q['ans'] for i,q in enumerate(QUESTIONS) if i in s.submitted))
         c3.metric('Answered',f'{len(s.submitted)}/10')
+        fb_title, fb_body = feedback_for_results()
+        with st.container(key='question_island'):
+            st.markdown('### 🎯 ' + fb_title)
+            st.markdown(fb_body)
         st.markdown('### Review your answers')
         for i,q in enumerate(QUESTIONS):
             with st.expander(f'Question {i+1} · '+('Correct ✓' if i in s.submitted and s.selections.get(i)==q['ans'] else 'Incorrect ✗' if i in s.submitted else 'Not answered')):
@@ -312,6 +354,10 @@ elif s.page=='results':
     c1.metric('Solved',f'{len(s.solved)}/10')
     c2.metric('Incorrect attempts',sum(s.mistakes.values()))
     c3.metric('Accuracy (first attempt)',f'{sum(1 for i in s.solved if s.mistakes.get(i,0)==0)}/10')
+    fb_title, fb_body = feedback_for_results()
+    with st.container(key='question_island'):
+        st.markdown('### 🎯 ' + fb_title)
+        st.markdown(fb_body)
     st.markdown('### Answer key and explanations')
     for i,q in enumerate(QUESTIONS):
         with st.expander(f'Question {i+1} · {"Solved" if i in s.solved else "Not solved"}'):
