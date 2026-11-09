@@ -1,5 +1,6 @@
 import streamlit as st
 import time
+from html import escape
 import streamlit.components.v1 as components
 
 st.set_page_config(page_title='Trigonometry Challenge', page_icon='📐', layout='wide', initial_sidebar_state='collapsed')
@@ -120,6 +121,31 @@ h1,h2,h3,h4,p,label {{color:{FG};}}
 .small-muted {{color:{MUTED};font-size:14px;}}
 </style>''',unsafe_allow_html=True)
 
+def readable_notice(message, kind='info'):
+    """Readable status banner independent of Streamlit's internal alert theme."""
+    palette = {
+        'success': ('#e6f7ef', '#14543b', '#8ad5b0', '✓'),
+        'error': ('#fff0ee', '#7c2823', '#eab2ab', '!'),
+        'warning': ('#fff6df', '#75501b', '#ebd08e', '!'),
+        'info': ('#edf7ff', '#194c69', '#a8cfe5', 'i'),
+    }
+    bg, fg, border, symbol = palette.get(kind, palette['info'])
+    if DARK:
+        bg, fg, border = {
+            'success': ('#20483b', '#e6fff1', '#4f9c7c'),
+            'error': ('#542d30', '#ffecec', '#a86868'),
+            'warning': ('#4b4029', '#fff4d5', '#9e8650'),
+            'info': ('#254554', '#edfaff', '#5c93a7'),
+        }.get(kind, ('#254554', '#edfaff', '#5c93a7'))
+    st.markdown(
+        f'<div role="status" style="background:{bg};color:{fg};border:1px solid {border};'
+        f'border-radius:13px;padding:14px 16px;margin:9px 0 14px;'
+        f'font-size:15px;font-weight:550;line-height:1.5;">'
+        f'<span style="color:{fg};font-weight:800;margin-right:9px;">{symbol}</span>'
+        f'<span style="color:{fg};">{escape(str(message))}</span></div>',
+        unsafe_allow_html=True,
+    )
+
 def live_timer():
     if not s.timer_minutes or not s.started_at:
         return
@@ -180,7 +206,7 @@ with st.sidebar:
             st.caption('Unlimited time — no countdown.')
         st.markdown(f'<div style="border:2px solid {GREEN};border-radius:50%;width:105px;height:105px;margin:14px auto;display:flex;align-items:center;justify-content:center;background:{CARD};font-size:23px;font-weight:800;color:{GREEN};">{chosen if chosen else "∞"}<span style="font-size:11px;margin-left:4px">{"min" if chosen else ""}</span></div>',unsafe_allow_html=True)
     else:
-        st.info('Timer: '+(f'{s.timer_minutes} minutes' if s.timer_minutes else 'Off')+' · Restart to change duration.')
+        readable_notice('Timer: '+(f'{s.timer_minutes} minutes' if s.timer_minutes else 'Off')+' · Restart to change duration.', 'info')
     st.divider()
     st.markdown('### 🎯 Answer feedback')
     feedback_choice=st.radio('When should answers be checked?', ['Instant','At the end'], index=0 if s.feedback_mode=='Instant' else 1, disabled=s.page!='home', help='Instant: retry incorrect answers and unlock levels by solving them. At the end: submit one answer per question, see correctness only on the results page.')
@@ -255,12 +281,12 @@ elif s.page=='quiz':
                 labels=[f'{chr(65+i)})  {opt}' for i,opt in enumerate(q['opts'])]
                 selected=st.radio('Choose your answer:',options=list(range(4)),format_func=lambda j:labels[j],index=None if idx not in s.selections else s.selections[idx],key=f'answer_{idx}',disabled=idx in (s.solved if s.feedback_mode=='Instant' else s.submitted))
                 if idx in s.submitted and s.feedback_mode=='At the end':
-                    st.info('Answer saved. Correctness will be revealed on the results page.')
+                    readable_notice('Answer saved. Correctness will be revealed on the results page.', 'info')
                 elif idx in s.solved:
-                    st.success('Correct! This question is complete.')
+                    readable_notice('Correct! This question is complete.', 'success')
                 else:
                     if errors and s.feedback_mode=='Instant':
-                        st.error(f'Not quite. Attempts with incorrect answers: {errors}. Try again!')
+                        readable_notice(f'Not quite. Attempts with incorrect answers: {errors}. Try again!', 'error')
                     action,hint_action=st.columns([2,1])
                     with action:
                         if st.button('Submit Answer' if s.feedback_mode=='At the end' else 'Check Answer',type='primary',use_container_width=True,disabled=selected is None or (s.feedback_mode=='At the end' and idx in s.submitted),key=f'check_{idx}'):
@@ -325,9 +351,9 @@ elif s.page=='results':
     if s.feedback_mode=='At the end':
         correct=sum(s.selections.get(i)==q['ans'] for i,q in enumerate(QUESTIONS) if i in s.submitted)
         if not s.expired:
-            st.success(f'You answered {correct} of 10 questions correctly.')
+            readable_notice(f'You answered {correct} of 10 questions correctly.', 'success')
         else:
-            st.warning('Time is up. Here are your results so far.')
+            readable_notice('Time is up. Here are your results so far.', 'warning')
         c1,c2,c3=st.columns(3)
         c1.metric('Correct',f'{correct}/10')
         c2.metric('Incorrect',sum(s.selections.get(i)!=q['ans'] for i,q in enumerate(QUESTIONS) if i in s.submitted))
@@ -347,9 +373,9 @@ elif s.page=='results':
             begin();st.rerun()
         st.stop()
     if s.expired:
-        st.warning('Time is up. Here is your progress so far.')
+        readable_notice('Time is up. Here is your progress so far.', 'warning')
     else:
-        st.success('Congratulations! You completed the quiz.')
+        readable_notice('Congratulations! You completed the quiz.', 'success')
     c1,c2,c3=st.columns(3)
     c1.metric('Solved',f'{len(s.solved)}/10')
     c2.metric('Incorrect attempts',sum(s.mistakes.values()))
